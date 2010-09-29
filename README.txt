@@ -1,4 +1,4 @@
-Cassandra is a highly scalable, eventually consistent, distributed, structured 
+jCassandra is a highly scalable, eventually consistent, distributed, structured 
 key-value store. 
 
 

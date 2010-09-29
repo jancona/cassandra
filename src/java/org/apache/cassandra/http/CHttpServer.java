@@ -48,7 +48,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 import static org.apache.cassandra.utils.FBUtilities.bytesToHex;
@@ -58,13 +57,11 @@ public class CHttpServer
     private static final Logger logger = LoggerFactory.getLogger(CHttpServer.class);
     private static final String UTF8 = "UTF8";
     
-    private final HttpHandler loginHandler;
     private final HttpHandler getHandler;
     private final HttpHandler setHandler;
     
     public enum Handler 
     {
-        LOGIN("/login"),
         GET("/get"),
         SET("/set");
         
@@ -80,17 +77,10 @@ public class CHttpServer
         }
     }
     
-    private final ClientState clientState = new ClientState();
+    // todo: have a sessionlocal object (like a threadlocal, you know) to keep track of keyspace, authz, authn, etc.
     
     public CHttpServer() 
     {
-        loginHandler = new HttpHandler() 
-        {
-            public void handle(HttpExchange exchange) throws IOException
-            {
-                handleLogin(exchange);
-            }
-        };
         getHandler = new HttpHandler() 
         {
             public void handle(HttpExchange exchange) throws IOException
@@ -110,25 +100,9 @@ public class CHttpServer
     public HttpHandler getHandler(Handler h) 
     {
         switch (h) {
-            case LOGIN: return loginHandler;
             case GET:   return getHandler;
             case SET:   return setHandler;
             default:    throw new RuntimeException("Unknown handler " + h);
-        }
-    }
-    
-    private void handleLogin(HttpExchange exch) 
-    {
-        Map<String, String> creds = new HashMap<String, String>();
-        try 
-        {
-            clientState.login(creds);
-        } 
-        catch (AuthenticationException ex) 
-        {
-            exch.getRequestHeaders().add("WWW-Authenticate", "You didn't do it right.");
-            send(401, "Authentication Failed " + ex.getMessage(), exch);
-            logger.error(ex.getMessage(), ex);
         }
     }
     
@@ -145,10 +119,11 @@ public class CHttpServer
         
         // todo: validation. send a 400 if things don't check out.
         // todo: scheduling.
+        // todo: authn/authz
         
         try
         {
-            clientState.hasKeyspaceAccess(Permission.WRITE_VALUE);
+//            clientState.hasKeyspaceAccess(Permission.WRITE_VALUE);
             RowMutation rm = new RowMutation(keyspace, key.getBytes(UTF8));
             rm.add(new QueryPath(column_family, super_column.length() == 0 ? null : super_column.getBytes(UTF8), column.getBytes(UTF8)), value.getBytes(UTF8), new TimestampClock(System.currentTimeMillis()));
             StorageProxy.mutate(Arrays.asList(rm), ConsistencyLevel.valueOf(consistency_level));
@@ -180,6 +155,8 @@ public class CHttpServer
         String endCol = parts[7];
         String consistency_level = parts[8];
         
+        // todo: authn/authz
+        
         // I don't care for the asString hack. What would be cool (and correct) is to convert to the comparator type and
         // stringify that.
         String query = exch.getRequestURI().getQuery() == null ? "" : exch.getRequestURI().getQuery();
@@ -192,7 +169,7 @@ public class CHttpServer
         }
 
         // todo: currently ignoring credentials, etc.
-        clientState.setKeyspace(keyspace);
+//        clientState.setKeyspace(keyspace);
         
         // todo: scheduling.
         
