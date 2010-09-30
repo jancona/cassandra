@@ -18,8 +18,6 @@
 
 package org.apache.cassandra.http;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
 import org.apache.cassandra.db.IColumn;
 import org.apache.cassandra.db.ReadCommand;
 import org.apache.cassandra.db.Row;
@@ -59,8 +57,8 @@ public class CHttpServer
     
     public enum Handler 
     {
-        GET("/get"),
-        SET("/set");
+        get("/get"),
+        set("/set");
         
         private final String path;
         private Handler(String s) 
@@ -97,8 +95,8 @@ public class CHttpServer
     public IHandler getHandler(Handler h) 
     {
         switch (h) {
-            case GET:   return getHandler;
-            case SET:   return setHandler;
+            case get:   return getHandler;
+            case set:   return setHandler;
             default:    throw new RuntimeException("Unknown handler " + h);
         }
     }

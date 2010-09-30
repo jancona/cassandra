@@ -21,6 +21,7 @@ package org.apache.cassandra.http.impl;
 import java.io.IOException;
 
 /** For implementing handlers. */
+// todo: this can probably be converted to a class. I don't think I'm gong to need to create impls of it.
 public interface IHandler
 {
     public void handle(IHTTP http) throws IOException;
