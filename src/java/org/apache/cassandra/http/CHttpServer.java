@@ -20,7 +20,6 @@ package org.apache.cassandra.http;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import org.apache.cassandra.auth.Permission;
 import org.apache.cassandra.db.IColumn;
 import org.apache.cassandra.db.ReadCommand;
 import org.apache.cassandra.db.Row;
@@ -29,9 +28,9 @@ import org.apache.cassandra.db.SliceFromReadCommand;
 import org.apache.cassandra.db.TimestampClock;
 import org.apache.cassandra.db.filter.QueryPath;
 import org.apache.cassandra.db.marshal.AbstractType;
-import org.apache.cassandra.service.ClientState;
+import org.apache.cassandra.http.impl.IHTTP;
+import org.apache.cassandra.http.impl.IHandler;
 import org.apache.cassandra.service.StorageProxy;
-import org.apache.cassandra.thrift.AuthenticationException;
 import org.apache.cassandra.thrift.ConsistencyLevel;
 import org.apache.cassandra.thrift.InvalidRequestException;
 import org.apache.cassandra.thrift.UnavailableException;
@@ -41,11 +40,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOError;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
@@ -57,8 +54,8 @@ public class CHttpServer
     private static final Logger logger = LoggerFactory.getLogger(CHttpServer.class);
     private static final String UTF8 = "UTF8";
     
-    private final HttpHandler getHandler;
-    private final HttpHandler setHandler;
+    private final IHandler getHandler;
+    private final IHandler setHandler;
     
     public enum Handler 
     {
@@ -81,23 +78,23 @@ public class CHttpServer
     
     public CHttpServer() 
     {
-        getHandler = new HttpHandler() 
+        getHandler = new IHandler() 
         {
-            public void handle(HttpExchange exchange) throws IOException
+            public void handle(IHTTP exchange) throws IOException
             {
                 get(exchange);
             }
         };
-        setHandler = new HttpHandler() 
+        setHandler = new IHandler() 
         {
-            public void handle(HttpExchange exchange) throws IOException
+            public void handle(IHTTP exchange) throws IOException
             {
                 set(exchange);
             }
         };
     }
     
-    public HttpHandler getHandler(Handler h) 
+    public IHandler getHandler(Handler h) 
     {
         switch (h) {
             case GET:   return getHandler;
@@ -106,9 +103,9 @@ public class CHttpServer
         }
     }
     
-    private void set(HttpExchange exch) 
+    private void set(IHTTP exch) 
     {
-        String[] parts = exch.getRequestURI().getPath().split("\\/", -1);
+        String[] parts = exch.getRequestPath().split("\\/", -1);
         String keyspace = parts[2];
         String column_family = parts[3];
         String key = parts[4];
@@ -141,12 +138,12 @@ public class CHttpServer
     }
     
     /** executes a get_slice */
-    private void get(HttpExchange exch) 
+    private void get(IHTTP exch) 
     {
         boolean asString = false;
         
         // todo: validate and send a 400 if things don't check out.
-        String[] parts = exch.getRequestURI().getPath().split("\\/", -1);
+        String[] parts = exch.getRequestPath().split("\\/", -1);
         String keyspace = parts[2];
         String column_family = parts[3];
         String key = parts[4];
@@ -159,7 +156,7 @@ public class CHttpServer
         
         // I don't care for the asString hack. What would be cool (and correct) is to convert to the comparator type and
         // stringify that.
-        String query = exch.getRequestURI().getQuery() == null ? "" : exch.getRequestURI().getQuery();
+        String query = exch.getRequestQuery() == null ? "" : exch.getRequestQuery();
         String[] queryParts = query.split("&", -1);
         for (String part : queryParts)
         {
@@ -230,14 +227,11 @@ public class CHttpServer
         }
     }
     
-    private static void send(int status, String msg, HttpExchange exch) 
+    private static void send(int status, String msg, IHTTP exch) 
     {
         try 
         {
-            exch.sendResponseHeaders(status, msg.length());
-            OutputStream out = exch.getResponseBody();
-            out.write(msg.getBytes(UTF8));
-            out.close();
+            exch.send(status, msg);
         } 
         catch (IOException ex) 
         {
@@ -246,7 +240,7 @@ public class CHttpServer
     }
     
     /** handling an exception involves deciding what status to send back and then sending it. */
-    private void handleEx(Exception ex, HttpExchange http) 
+    private void handleEx(Exception ex, IHTTP http) 
     {
         int status = 500; // default status.
         if (ex instanceof UnsupportedEncodingException)

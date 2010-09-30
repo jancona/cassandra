@@ -18,17 +18,17 @@
 
 package org.apache.cassandra.http;
 
-import com.sun.net.httpserver.HttpServer;
+import org.apache.cassandra.http.impl.IHttpServer;
+import org.apache.cassandra.http.impl.sun.SunHttpServer;
 import org.apache.cassandra.service.AbstractCassandraDaemon;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 
 public class HttpDaemon extends AbstractCassandraDaemon
 {
     
-    private HttpServer http;
-    private CHttpServer rit;
+    private IHttpServer http;
+    private CHttpServer cassandra;
     
     @Override
     public void start() throws IOException
@@ -48,11 +48,9 @@ public class HttpDaemon extends AbstractCassandraDaemon
         super.setup();
         try 
         {
-            rit = new CHttpServer();
-            http = HttpServer.create(new InetSocketAddress(listenAddr, listenPort), listenPort);
-            http.setExecutor(null);
-            for (CHttpServer.Handler handler : CHttpServer.Handler.values()) 
-                http.createContext(handler.path(), rit.getHandler(handler));
+            cassandra = new CHttpServer();
+            http = new SunHttpServer(this.listenAddr, this.listenPort);
+            http.init(cassandra);
         } 
         catch (IOException wtf) 
         {
