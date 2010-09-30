@@ -49,6 +49,7 @@ public class HttpDaemon extends AbstractCassandraDaemon
             cassandra = new CHttpServer();
             http = new SunHttpServer(this.listenAddr, this.listenPort);
 //            http = new JettyHttpServer(this.listenAddr, this.listenPort);
+//            http = new JettyServletServer(this.listenAddr, this.listenPort);
             http.init(cassandra);
         } 
         catch (IOException wtf) 

@@ -18,84 +18,61 @@
 
 package org.apache.cassandra.http;
 
-import org.mortbay.jetty.Handler;
 import org.mortbay.jetty.Request;
-import org.mortbay.jetty.Server;
-import org.mortbay.jetty.handler.AbstractHandler;
+import org.mortbay.jetty.servlet.Context;
+import org.mortbay.jetty.servlet.ServletHolder;
 
+import javax.servlet.Servlet;
 import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.InetAddress;
 
-public class JettyHttpServer implements IHttpServer
-{
-    protected final Server server;
-    
-    public JettyHttpServer(InetAddress addr, int port) throws IOException
+public class JettyServletServer extends JettyHttpServer
+{   
+    public JettyServletServer(InetAddress addr, int port) throws IOException
     {
-        // todo: how to get it to bind to a specific interface?
-        server = new Server(port);
-    }
-    
-    public void start()
-    {
-        try 
-        {
-            server.start();
-        } 
-        catch (Exception ex)
-        {
-            throw new RuntimeException(ex);
-        }
-    }
-    
-    public void stop()
-    {
-        try
-        {
-            server.stop();
-        }
-        catch (Exception ex)
-        {
-            throw new RuntimeException(ex);
-        }
+        super(addr, port);
     }
 
     public void init(final CHttpServer cassandra)
     {
-        // there are two ways I could have gone about handling requests.
-        // 1) a single handler that does everything (no servlet)
-        // 2) separate contexts and servlets (enterprise!).
-        // I choose 1.
-        Handler handler = new AbstractHandler()
+        // set up the contexts, servlets, etc here.
+        for (CHttpServer.HandlerType info : CHttpServer.HandlerType.values()) 
         {
-            @Override
-            public void handle(String s, HttpServletRequest req, HttpServletResponse res, int i) throws IOException, ServletException
+            final IHandler handler = cassandra.getHandler(info); 
+            final String op = info.path();
+            Servlet servlet = new HttpServlet() 
             {
-                // maybe I don't like this approach because it chokes on favico, etc.
-                String handlerName = s.substring(1, s.indexOf('/', 1));
-                cassandra.getHandler(CHttpServer.HandlerType.valueOf(handlerName)).handle(new JettyHttp(req, res));
-            }
-        };
-        server.setHandler(handler);
+                @Override
+                protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException
+                {
+                    handler.handle(new JettyHttp(op, req, resp));                      
+                }
+            };
+            Context ctx = new Context(server, info.path(), Context.NO_SESSIONS);
+            ctx.addServlet(new ServletHolder(servlet), "/*");
+        }
     }
     
     private class JettyHttp implements IHTTP
     {
+        private final String op;
         private final HttpServletRequest req;
         private final HttpServletResponse res;
         
-        JettyHttp(HttpServletRequest req, HttpServletResponse res)
+        JettyHttp(String op, HttpServletRequest req, HttpServletResponse res)
         {
+            this.op = op;
             this.req = req;
             this.res = res;
         }
         
         public String getRequestPath()
         {
-            return req.getPathInfo();
+            return op + req.getPathInfo();
         }
 
         public String getRequestQuery()
