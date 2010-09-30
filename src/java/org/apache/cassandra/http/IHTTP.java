@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.cassandra.http.impl;
+package org.apache.cassandra.http;
 
 import java.io.IOException;
 

@@ -16,39 +16,12 @@
  * limitations under the License.
  */
 
-package org.apache.cassandra.http.impl.sun;
-
-import com.sun.net.httpserver.HttpExchange;
-import org.apache.cassandra.http.impl.IHTTP;
+package org.apache.cassandra.http;
 
 import java.io.IOException;
-import java.io.OutputStream;
 
-public class SunHttp implements IHTTP
+/** For implementing handlers. */
+public interface IHandler
 {
-    private static final String enc = "UTF8";
-    private HttpExchange exch;
-    
-    public SunHttp(HttpExchange exch)
-    {
-        this.exch = exch;
-    }
-    
-    public String getRequestPath()
-    {
-        return exch.getRequestURI().getPath();
-    }
-
-    public String getRequestQuery()
-    {
-        return exch.getRequestURI().getQuery();
-    }
-
-    public void send(int status, String msg) throws IOException
-    {
-        exch.sendResponseHeaders(status, msg.length());
-        OutputStream out = exch.getResponseBody();
-        out.write(msg.getBytes(enc));
-        out.close();
-    }
+    public void handle(IHTTP http) throws IOException;
 }

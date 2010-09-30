@@ -16,11 +16,8 @@
  * limitations under the License.
  */
 
-package org.apache.cassandra.http.impl.jetty;
+package org.apache.cassandra.http;
 
-import org.apache.cassandra.http.CHttpServer;
-import org.apache.cassandra.http.impl.IHTTP;
-import org.apache.cassandra.http.impl.IHttpServer;
 import org.mortbay.jetty.Handler;
 import org.mortbay.jetty.Request;
 import org.mortbay.jetty.Server;
@@ -79,7 +76,7 @@ public class JettyHttpServer implements IHttpServer
             {
                 // maybe I don't like this approach because it chokes on favico, etc.
                 String handlerName = s.substring(1, s.indexOf('/', 1));
-                cassandra.getHandler(CHttpServer.Handler.valueOf(handlerName)).handle(new JettyHttp(req, res));
+                cassandra.getHandler(CHttpServer.HandlerType.valueOf(handlerName)).handle(new JettyHttp(req, res));
             }
         };
         server.setHandler(handler);

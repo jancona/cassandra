@@ -16,15 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.cassandra.http.impl.sun;
+package org.apache.cassandra.http;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
-import org.apache.cassandra.http.CHttpServer;
-import org.apache.cassandra.http.impl.IHttpServer;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 
@@ -41,9 +40,9 @@ public class SunHttpServer implements IHttpServer
     public void init(final CHttpServer cassandra)
     {
         // iterate over the cassandra-supplied handlers and create sun contexts for them. */
-        for (CHttpServer.Handler info : CHttpServer.Handler.values()) 
+        for (CHttpServer.HandlerType info : CHttpServer.HandlerType.values()) 
         {
-            final CHttpServer.Handler finfo = info;
+            final CHttpServer.HandlerType finfo = info;
             http.createContext(info.path(),
                                new HttpHandler() 
                                {
@@ -64,5 +63,34 @@ public class SunHttpServer implements IHttpServer
     public void stop()
     {
         http.stop(0);
+    }
+    
+    private class SunHttp implements IHTTP 
+    {
+        private static final String enc = "UTF8";
+        private HttpExchange exch;
+        
+        public SunHttp(HttpExchange exch)
+        {
+            this.exch = exch;
+        }
+        
+        public String getRequestPath()
+        {
+            return exch.getRequestURI().getPath();
+        }
+    
+        public String getRequestQuery()
+        {
+            return exch.getRequestURI().getQuery();
+        }
+    
+        public void send(int status, String msg) throws IOException
+        {
+            exch.sendResponseHeaders(status, msg.length());
+            OutputStream out = exch.getResponseBody();
+            out.write(msg.getBytes(enc));
+            out.close();
+        }
     }
 }

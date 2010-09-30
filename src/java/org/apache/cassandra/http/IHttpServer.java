@@ -16,13 +16,12 @@
  * limitations under the License.
  */
 
-package org.apache.cassandra.http.impl;
+package org.apache.cassandra.http;
 
-import java.io.IOException;
-
-/** For implementing handlers. */
-// todo: this can probably be converted to a class. I don't think I'm gong to need to create impls of it.
-public interface IHandler
+/** For implementing HTTP Services */
+public interface IHttpServer
 {
-    public void handle(IHTTP http) throws IOException;
+    public void start();
+    public void stop();
+    public void init(CHttpServer cassandra);
 }

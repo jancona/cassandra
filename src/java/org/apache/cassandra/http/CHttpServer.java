@@ -26,8 +26,6 @@ import org.apache.cassandra.db.SliceFromReadCommand;
 import org.apache.cassandra.db.TimestampClock;
 import org.apache.cassandra.db.filter.QueryPath;
 import org.apache.cassandra.db.marshal.AbstractType;
-import org.apache.cassandra.http.impl.IHTTP;
-import org.apache.cassandra.http.impl.IHandler;
 import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.thrift.ConsistencyLevel;
 import org.apache.cassandra.thrift.InvalidRequestException;
@@ -55,13 +53,13 @@ public class CHttpServer
     private final IHandler getHandler;
     private final IHandler setHandler;
     
-    public enum Handler 
+    public enum HandlerType 
     {
         get("/get"),
         set("/set");
         
         private final String path;
-        private Handler(String s) 
+        private HandlerType(String s) 
         {
             path = s;
         }
@@ -92,7 +90,7 @@ public class CHttpServer
         };
     }
     
-    public IHandler getHandler(Handler h) 
+    public IHandler getHandler(HandlerType h) 
     {
         switch (h) {
             case get:   return getHandler;
