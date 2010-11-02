@@ -1,0 +1,9 @@
+.classpath
+.project
+.settings/
+build/
+eclipse-bin/
+interface/avro/
+src/gen-java/
+test/conf/jim-cassandra.yaml
+
