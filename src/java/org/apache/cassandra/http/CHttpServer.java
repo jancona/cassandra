@@ -18,32 +18,30 @@
 
 package org.apache.cassandra.http;
 
-import org.apache.cassandra.db.IColumn;
-import org.apache.cassandra.db.ReadCommand;
-import org.apache.cassandra.db.Row;
-import org.apache.cassandra.db.RowMutation;
-import org.apache.cassandra.db.SliceFromReadCommand;
-import org.apache.cassandra.db.TimestampClock;
-import org.apache.cassandra.db.filter.QueryPath;
-import org.apache.cassandra.db.marshal.AbstractType;
-import org.apache.cassandra.service.StorageProxy;
-import org.apache.cassandra.thrift.ConsistencyLevel;
-import org.apache.cassandra.thrift.InvalidRequestException;
-import org.apache.cassandra.thrift.UnavailableException;
-import org.apache.cassandra.utils.FBUtilities;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static org.apache.cassandra.utils.FBUtilities.bytesToHex;
 
 import java.io.IOError;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.CharacterCodingException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
-import static org.apache.cassandra.utils.FBUtilities.bytesToHex;
+import org.apache.cassandra.db.*;
+import org.apache.cassandra.db.filter.QueryPath;
+import org.apache.cassandra.db.marshal.AbstractType;
+import org.apache.cassandra.service.StorageProxy;
+import org.apache.cassandra.thrift.ConsistencyLevel;
+import org.apache.cassandra.thrift.InvalidRequestException;
+import org.apache.cassandra.thrift.UnavailableException;
+import org.apache.cassandra.utils.ByteBufferUtil;
+import org.apache.cassandra.utils.FBUtilities;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CHttpServer
 {
@@ -117,8 +115,10 @@ public class CHttpServer
         try
         {
 //            clientState.hasKeyspaceAccess(Permission.WRITE_VALUE);
-            RowMutation rm = new RowMutation(keyspace, key.getBytes(UTF8));
-            rm.add(new QueryPath(column_family, super_column.length() == 0 ? null : super_column.getBytes(UTF8), column.getBytes(UTF8)), value.getBytes(UTF8), new TimestampClock(System.currentTimeMillis()));
+            RowMutation rm = new RowMutation(keyspace, ByteBufferUtil.bytes(key));
+            rm.add(new QueryPath(column_family, ByteBufferUtil.bytes(super_column), ByteBufferUtil.bytes(column)),
+                    ByteBufferUtil.bytes(value), 
+                    System.currentTimeMillis());
             StorageProxy.mutate(Arrays.asList(rm), ConsistencyLevel.valueOf(consistency_level));
         }
         catch (Exception ex)
@@ -168,8 +168,8 @@ public class CHttpServer
         
         try 
         {
-            QueryPath path = new QueryPath(column_family, super_column.length() > 0 ? super_column.getBytes(UTF8) : null);
-            ReadCommand command = new SliceFromReadCommand(keyspace, key.getBytes(UTF8), path, startCol.getBytes(UTF8), endCol.getBytes(UTF8), false, 100);
+            QueryPath path = new QueryPath(column_family, ByteBufferUtil.bytes(super_column), null);
+            ReadCommand command = new SliceFromReadCommand(keyspace, ByteBufferUtil.bytes(key), path, ByteBufferUtil.bytes(startCol), ByteBufferUtil.bytes(endCol), false, 100);
             List<Row> rows = StorageProxy.readProtocol(Arrays.asList(command), ConsistencyLevel.valueOf(consistency_level));
             
             StringBuilder json = new StringBuilder();
@@ -190,13 +190,13 @@ public class CHttpServer
                 json.append(" {");
                 if (row.cf.isSuper()) {
                     for (IColumn sc : row.cf.getSortedColumns()) {
-                        String scDisp = asString ? new String(sc.name(), UTF8) : FBUtilities.bytesToHex(sc.name()); 
+                        String scDisp = asString ? FBUtilities.decodeToUTF8(sc.name()) : FBUtilities.bytesToHex(sc.name()); 
                         // name
                         json.append(JSON.asKey(scDisp));
                         json.append("{");
                         // deletedat
                         json.append(JSON.asKey("deletedAt"));
-                        json.append(((TimestampClock) sc.getMarkedForDeleteAt()).timestamp());
+                        json.append(sc.getMarkedForDeleteAt());
                         json.append(", ");
                         // subcols
                         json.append(JSON.asKey("subColumns"));
@@ -278,18 +278,18 @@ public class CHttpServer
                 try {
                     json.append("[");
                     IColumn column = iter.next();
-                    json.append(quote(asString ? new String(column.name(), UTF8) : bytesToHex(column.name())));
+                    json.append(quote(asString ? FBUtilities.decodeToUTF8(column.name()) : bytesToHex(column.name())));
                     json.append(", ");
-                    json.append(quote(asString ? new String(column.value(), UTF8) : bytesToHex(column.value())));
+                    json.append(quote(asString ? FBUtilities.decodeToUTF8(column.value()) : bytesToHex(column.value())));
                     json.append(", ");
-                    json.append(((TimestampClock) column.clock()).timestamp());
+                    json.append(column.timestamp());
                     json.append(", ");
                     json.append(column.isMarkedForDelete());
                     json.append("]");
                     if (iter.hasNext())
                         json.append(", ");
                 }
-                catch (UnsupportedEncodingException bollocks)
+                catch (CharacterCodingException bollocks)
                 {
                     throw new RuntimeException(bollocks);
                 }
